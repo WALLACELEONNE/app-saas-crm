@@ -1,0 +1,321 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+* {
+  border-color: #1f2922;
+}
+
+html,
+body,
+#root {
+  background-color: #070a08;
+  color: #f8fafc;
+  font-family: "Manrope", system-ui, sans-serif;
+  min-height: 100vh;
+}
+
+::selection {
+  background: #22c55e;
+  color: #070a08;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: #0c110e;
+}
+::-webkit-scrollbar-thumb {
+  background: #1f2922;
+  border-radius: 8px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #2a3c30;
+}
+
+.font-head {
+  font-family: "Outfit", system-ui, sans-serif;
+  letter-spacing: -0.01em;
+}
+.font-mono {
+  font-family: "IBM Plex Mono", monospace;
+}
+
+.overline {
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  letter-spacing: 0.2em;
+  color: #8ba094;
+  font-weight: 600;
+}
+
+.card-surface {
+  background: #121915;
+  border: 1px solid #1f2922;
+  border-radius: 14px;
+  transition: transform 0.18s ease, border-color 0.18s ease;
+}
+.card-surface:hover {
+  border-color: #2a3c30;
+}
+.card-lift:hover {
+  transform: translateY(-2px);
+}
+
+/* Glow border for KPI tracing-beam */
+.kpi-trace {
+  position: relative;
+  isolation: isolate;
+}
+.kpi-trace::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: 15px;
+  padding: 1px;
+  background: conic-gradient(
+    from var(--angle, 0deg),
+    transparent 0deg,
+    transparent 220deg,
+    #22c55e 280deg,
+    #facc15 320deg,
+    transparent 360deg
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  z-index: 0;
+  pointer-events: none;
+  animation: spin 8s linear infinite;
+}
+.kpi-trace > * {
+  position: relative;
+  z-index: 1;
+}
+@property --angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+@keyframes spin {
+  to {
+    --angle: 360deg;
+  }
+}
+
+/* Stagger fade-in */
+.fade-in {
+  opacity: 0;
+  transform: translateY(6px);
+  animation: fadeIn 0.45s ease forwards;
+}
+@keyframes fadeIn {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Buttons */
+.btn-primary {
+  background: #22c55e;
+  color: #070a08;
+  font-weight: 600;
+  padding: 0.55rem 1rem;
+  border-radius: 8px;
+  transition: background 0.18s ease, transform 0.18s ease;
+}
+.btn-primary:hover {
+  background: #16a34a;
+  transform: translateY(-1px);
+}
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-ghost {
+  background: transparent;
+  border: 1px solid #1f2922;
+  color: #f8fafc;
+  padding: 0.5rem 0.9rem;
+  border-radius: 8px;
+  transition: border-color 0.18s ease, background 0.18s ease;
+}
+.btn-ghost:hover {
+  border-color: #22c55e;
+  background: rgba(34, 197, 94, 0.05);
+}
+
+.input-field {
+  background: transparent;
+  border: 1px solid #1f2922;
+  color: #f8fafc;
+  border-radius: 8px;
+  padding: 0.55rem 0.85rem;
+  font-family: "Manrope", system-ui, sans-serif;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+  width: 100%;
+}
+.input-field:focus {
+  outline: none;
+  border-color: #22c55e;
+  box-shadow: 0 0 0 1px #22c55e;
+}
+
+.divider {
+  height: 1px;
+  background: #1f2922;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.18rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: #1f2922;
+  color: #f8fafc;
+  letter-spacing: 0.02em;
+}
+.tag-yellow { background: rgba(250, 204, 21, 0.12); color: #facc15; }
+.tag-orange { background: rgba(249, 115, 22, 0.12); color: #f97316; }
+.tag-green  { background: rgba(34, 197, 94, 0.13); color: #22c55e; }
+.tag-red    { background: rgba(239, 68, 68, 0.13); color: #ef4444; }
+.tag-muted  { background: #1f2922; color: #8ba094; }
+
+/* Kanban */
+.kanban-col {
+  min-width: 290px;
+  width: 290px;
+  background: #0c110e;
+  border: 1px solid #1f2922;
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: calc(100vh - 220px);
+}
+.kanban-card {
+  background: #121915;
+  border: 1px solid #1f2922;
+  border-radius: 10px;
+  padding: 12px;
+  cursor: grab;
+  transition: border-color 0.18s ease, transform 0.18s ease;
+}
+.kanban-card:hover {
+  border-color: #22c55e;
+  transform: translateY(-1px);
+}
+.kanban-card.dragging { opacity: 0.5; }
+
+/* Chat bubbles */
+.bubble-user {
+  background: #1f2922;
+  color: #f8fafc;
+  border-radius: 14px 14px 4px 14px;
+  padding: 10px 14px;
+  max-width: 85%;
+  margin-left: auto;
+}
+.bubble-ai {
+  background: transparent;
+  border: 1px solid #22c55e;
+  color: #f8fafc;
+  border-radius: 14px 14px 14px 4px;
+  padding: 10px 14px;
+  max-width: 90%;
+  white-space: pre-wrap;
+}
+
+table.data-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+table.data-table th {
+  text-align: left;
+  font-size: 0.7rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #8ba094;
+  font-weight: 600;
+  padding: 12px 16px;
+  border-bottom: 1px solid #1f2922;
+}
+table.data-table td {
+  padding: 14px 16px;
+  border-bottom: 1px solid #1f2922;
+  font-size: 0.92rem;
+}
+table.data-table tr:hover td {
+  background: rgba(31, 41, 34, 0.5);
+}
+
+/* Sidebar item */
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0.65rem 0.9rem;
+  border-radius: 9px;
+  color: #8ba094;
+  font-weight: 500;
+  font-size: 0.92rem;
+  transition: background 0.18s ease, color 0.18s ease;
+  cursor: pointer;
+}
+.nav-item:hover {
+  background: rgba(34, 197, 94, 0.06);
+  color: #f8fafc;
+}
+.nav-item.active {
+  background: rgba(34, 197, 94, 0.14);
+  color: #22c55e;
+  position: relative;
+}
+.nav-item.active::before {
+  content: "";
+  position: absolute;
+  left: -12px; top: 6px; bottom: 6px;
+  width: 3px;
+  background: #22c55e;
+  border-radius: 0 3px 3px 0;
+}
+
+/* Floating sidebar style */
+.sidebar-shell {
+  position: fixed;
+  top: 16px;
+  bottom: 16px;
+  left: 16px;
+  width: 248px;
+  background: #0c110e;
+  border: 1px solid #1f2922;
+  border-radius: 16px;
+  padding: 22px 16px;
+  display: flex;
+  flex-direction: column;
+  z-index: 30;
+}
+
+.main-shell {
+  margin-left: 280px;
+  padding: 24px 28px 56px 28px;
+  min-height: 100vh;
+}
+
+@media (max-width: 900px) {
+  .sidebar-shell { left: 8px; right: 8px; bottom: auto; width: auto; padding: 14px; }
+  .main-shell { margin-left: 0; padding: 18px; padding-top: 110px; }
+}

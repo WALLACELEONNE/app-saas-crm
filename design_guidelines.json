@@ -1,0 +1,108 @@
+{
+  "theme": "dark",
+  "archetype": "Agro-Terminal Command Center (Hybrid of Performance Pro & Jewel)",
+  "design_philosophy": "A sophisticated, high-stakes trading terminal aesthetic grounded in earthy agricultural tones. Data density is high but clearly hierarchical. Micro-interactions provide immediate feedback.",
+  "colors": {
+    "background_app": "#070A08",
+    "surface_sidebar": "#0C110E",
+    "surface_card": "#121915",
+    "border_subtle": "#1F2922",
+    "border_focus": "#22C55E",
+    "primary": "#22C55E",
+    "primary_hover": "#16A34A",
+    "accent_yellow": "#FACC15",
+    "accent_orange": "#F97316",
+    "accent_red": "#EF4444",
+    "text_main": "#F8FAFC",
+    "text_muted": "#8BA094",
+    "forbidden_colors": [
+      "#9D4CDD",
+      "#7351B7",
+      "#1B93A4"
+    ]
+  },
+  "typography": {
+    "headings": {
+      "family": "Outfit",
+      "weights": [
+        "500",
+        "700"
+      ],
+      "usage": "Headers, large KPIs, module titles. Tight tracking."
+    },
+    "body": {
+      "family": "Manrope",
+      "weights": [
+        "400",
+        "500",
+        "600"
+      ],
+      "usage": "Data tables, standard text, UI labels, chat bubbles."
+    },
+    "mono": {
+      "family": "IBM Plex Mono",
+      "usage": "Ticker symbols, grain prices, volumes, logistical IDs, SLA times."
+    },
+    "rules": [
+      "No Inter or Roboto allowed anywhere.",
+      "Headings over 32px must use tracking-tight.",
+      "Overlines/table headers must be Uppercase, text-xs, tracking-[0.2em], text_muted."
+    ]
+  },
+  "layout": {
+    "strategy": "Asymmetric Control Room",
+    "sidebar": "Fixed on the left, detached 16px from edges (floating style), rounded-xl, high contrast against app bg.",
+    "dashboard_grid": "Tight grid (gap-4 or gap-6). grid-cols-1 md:grid-cols-4 lg:grid-cols-12. Cards span intentionally to avoid jagged bottoms. Every pixel utilized.",
+    "spacing_scale": "Tailwind scale. Generous internal padding for cards (p-6) to prevent text collision with borders."
+  },
+  "surfaces_and_micro_interactions": {
+    "cards": "Flat solid background (#121915), 1px crisp border (#1F2922), no ambient shadow. Subtle rounded-lg or rounded-xl.",
+    "hover_states": "Cards lift slightly (-translate-y-1) and border brightens to #2A3C30. Button text colors explicitly defined on hover.",
+    "tracing_beam": "Use for high-value KPI cards or Active Contracts. A glowing gradient line that traces the border edge.",
+    "data_tables": "Row hover gets bg-[#1F2922]/50. No vertical borders. Crisp horizontal 1px dividers.",
+    "glassmorphism": "Avoid on this dashboard (as it's data-heavy). Use solid surfaces for optical clarity."
+  },
+  "components": {
+    "icons": "lucide-react (mandatory). Use stroke-width 1.5 for elegance.",
+    "buttons": "Shadcn based. Sharp or slightly rounded corners. High contrast text.",
+    "forms": "Shadcn inputs. bg-transparent, border-subtle. focus:ring-1 focus:ring-primary focus:border-primary.",
+    "kanban": "Horizontal scrollable flex container for Pipeline de Vendas. Column headers sticky. Task cards highly compact.",
+    "charts": "Shadcn charts / Recharts. Dark theme ready. Grid lines muted to #1F2922. Use Accent colors for lines/bars (Yellow/Orange/Green)."
+  },
+  "modules": {
+    "dashboard_executivo": "Grid de KPIs focados em contratos, volume e faturamento. Alertas de mercado em painel dedicado.",
+    "clientes": "Tabelas avançadas para Produtores e Empresas com tags de classificação.",
+    "pipeline": "Kanban interativo, drag and drop, badges de histórico.",
+    "contratos_e_pedidos": "Formulários complexos estruturados em abas, com visão de status split-screen.",
+    "logistica": "Tabelas e mapas de pátio simplificados.",
+    "ia_agents": {
+      "chat_interface": "Floating or sliding right panel para Canal do Cliente. Distinct from main UI (lighter surface #161F1A) to signify conversational context.",
+      "message_bubbles": "User: #1F2922 bg. AI: primary green border with transparent bg. Highlight key extracted entities (prices, names) in Yellow.",
+      "prospec_vendas": "Widgets integrados no pipeline com sugestões highlight em laranja soja (#F97316)."
+    }
+  },
+  "testing_attributes": {
+    "rule": "All interactive and key informational elements MUST include a data-testid attribute.",
+    "convention": "kebab-case, role-based. e.g., data-testid='contract-save-button', data-testid='kpi-total-volume', data-testid='kanban-stage-negotiation'"
+  },
+  "media": {
+    "instructions": "Use these generated images for auth screens, empty states, or hero sections. NEVER use generic placeholders.",
+    "images": [
+      {
+        "category": "dashboard_background_or_auth",
+        "url": "https://static.prod-images.emergentagent.com/jobs/5235ba3d-5fb3-48c4-85ea-ed7b9eb35f96/images/2fe2d8896839e1d00557f8818e7571e894d479d4ebe7d0f3f5faccbe3d859f48.png",
+        "description": "Abstract dark typography maps and digital agriculture data points, earthy green and charcoal colors."
+      },
+      {
+        "category": "logo",
+        "url": "https://static.prod-images.emergentagent.com/jobs/5235ba3d-5fb3-48c4-85ea-ed7b9eb35f96/images/59ca2bb3ae134575b20299db68999cb56ceb113e5669f3e2f6ead8eaad82998b.png",
+        "description": "Minimalist geometric leaf and rising chart arrow logo, glowing yellow/green."
+      },
+      {
+        "category": "empty_state_or_marketing",
+        "url": "https://static.prod-images.emergentagent.com/jobs/5235ba3d-5fb3-48c4-85ea-ed7b9eb35f96/images/6f2baa22229104fcb0e6b47370314f0b655edb7b719650d803c901ed32fb5469.png",
+        "description": "Cinematic macro photography of golden soybeans and corn against pitch black background."
+      }
+    ]
+  }
+}

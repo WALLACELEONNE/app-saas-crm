@@ -1,0 +1,15 @@
+export const theme = {
+  bg: "#070A08",
+  surface: "#121915",
+  surface2: "#0C110E",
+  border: "#1F2922",
+  borderBright: "#2A3C30",
+  primary: "#22C55E",
+  primaryHover: "#16A34A",
+  yellow: "#FACC15",
+  orange: "#F97316",
+  red: "#EF4444",
+  text: "#F8FAFC",
+  muted: "#8BA094",
+  font: { head: "System", body: "System", mono: "Menlo" },
+};

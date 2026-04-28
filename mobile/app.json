@@ -1,0 +1,19 @@
+{
+  "expo": {
+    "name": "AgroCRM",
+    "slug": "agro-crm-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": false,
+    "splash": {
+      "backgroundColor": "#070A08"
+    },
+    "extra": {
+      "BACKEND_URL": "https://66b0cbee-0b13-4bcc-af0a-2461f39d3e5e.preview.emergentagent.com"
+    },
+    "ios": { "supportsTablet": true, "bundleIdentifier": "com.agrocrm.mobile" },
+    "android": { "package": "com.agrocrm.mobile" },
+    "web": { "favicon": "./assets/favicon.png" }
+  }
+}

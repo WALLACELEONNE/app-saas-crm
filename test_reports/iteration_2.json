@@ -1,0 +1,43 @@
+{
+  "summary": "Iteration 2 testing — ERP Hub backend + frontend. Backend: 38/38 pytest passing (27 regression from iter1 + 11 new ERP tests in test_erp_integrations.py). New tests cover: GET /api/integrations/connectors (sap+oracle+siagri enabled, endpoints point to internal simulator), POST /connectors/sap/test (ok=true, 200, latency<2s), POST /connectors/sap/configure as admin (200, persisted), trader 403 on configure, public /_simulator/{vendor} (no auth, ack=true with vendor_ref), client.create flow (POST /api/clients → outbox event clients.create reaches status=delivered within ~3s, deliveries to sap+siagri only — oracle correctly skipped), contract.create flow (deliveries to ALL 3 vendors sap+oracle+siagri), Siagri simulator log contains pt-BR fields entidade=Produtor and entidade=ContratoGraos, POST /outbox/{id}/retry returns retried=true, outbox counters.delivered>=1. Fixed 1 stale assertion in backend_test.py::TestIntegrations::test_connectors that still expected 'totvs/protheus' from iteration 1 — replaced with 'siagri'. Frontend: navigated /login → /dashboard → /erp via data-testid='nav-erp'. Sidebar has exactly 11 nav items. ERP page shows 3 connector cards (connector-sap/oracle/siagri), 4 outbox counters (delivered=10, pending=0, in_progress=0, failed=0), deliveries-table populated with vendor/topic/status/latency rows (e.g. SAP contracts.create OK 200 110ms, SIAGRI 30ms). 'Disparar teste' button on SAP fires POST /api/integrations/connectors/sap/test (verified via request interception). Clicking outbox-counter-delivered applies filter (badge 'Filtro: delivered'). Auto-refresh visible (label 'auto-refresh 5s'). Regression nav (dashboard/clients/pipeline/architecture) still works. Mobile (RN/Expo) — files present at /app/mobile/{App.js, src/db/sqlite.js, src/db/eventQueue.js, src/sync/syncEngine.js, src/sync/useAutoSync.js, src/screens/{Login,Home,Clients,List}Screen.js}. JSX syntax not checkable via node --check; relied on file-presence verification per scope note.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Outbox event row", "issue": "A contracts.create event with attempt 2 (tentativa 2) showing all three vendor badges with ✓ 200 (success) still renders a 'partial failure' sub-label in red. The badge appears to reflect historical attempt state rather than current state — slightly misleading. Cosmetic only.", "selector": ".outbox event item rendering 'partial failure' text", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/backend/tests/test_erp_integrations.py",
+    "/app/test_reports/pytest/erp_results.xml",
+    "/app/test_reports/pytest/all_results.xml"
+  ],
+  "action_items": [
+    "(LOW) Consider hiding 'partial failure' label on outbox events whose latest attempt fully succeeded (all vendors ok). Today the label sticks once any prior attempt failed even if a retry/redelivery brought everything to OK."
+  ],
+  "critical_code_review_comments": [
+    "ERP worker correctly defaults all 3 connector endpoints to http://localhost:8001/api/integrations/_simulator/{vendor} via INTERNAL_BASE_URL fallback — no external dependency for preview/dev.",
+    "Topics correctly partitioned: SAP=(clients.*, contracts.*, orders.*), Oracle=(contracts.*, orders.*), Siagri=(clients.*, contracts.*, orders.*, cargas.*). Verified Oracle does NOT receive clients.* deliveries.",
+    "Siagri transform produces full pt-BR field schema (entidade, codigoExterno, cpfCnpj, regiao, culturas, areaHectares, tier, ContratoGraos.tipo Venda/Compra/Barter, etc.) — well modelled for Brazilian agro ERP.",
+    "Outbox MongoDB collection (outbox_events) plus deliveries collection (connector_deliveries) provide full audit trail. _id is excluded via projection {'_id': 0} — good.",
+    "Retry endpoint allows resetting both 'failed' and 'delivered' events to 'pending' — useful for replay; ensure idempotency on consumer side is documented (current connectors are at-least-once).",
+    "Simulator endpoint /_simulator/{vendor} is intentionally public (no current_user dependency) — comment in code clarifies this is by design so connectors can call it without auth handshake. Acceptable.",
+    "Admin-only RBAC enforced on /connectors/{vendor}/configure (verified trader 403)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_erp_integrations.py (created — 11 tests)",
+    "/app/backend/tests/backend_test.py (1-line fix: TestIntegrations.test_connectors now asserts 'siagri' instead of 'totvs/protheus')"
+  ],
+  "success_rate": {"backend": "100% (38/38)", "frontend": "100% (all required ERP UI elements + interactions verified)"},
+  "test_credentials": "admin@agrocrm.com / Admin@123 (verified). trader@agrocrm.com / Trader@123 (verified — receives 403 on configure as expected).",
+  "seed_data_creation": "Created 1 TEST_ERPClient_xxx via POST /api/clients and 1 contract via POST /api/contracts during pytest run (used to verify outbox→dispatch→simulator flow). Not cleaned up — they participate as legitimate domain rows.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iteration 2 fully green. Backend regression suite is now /app/backend/tests/ (two files: backend_test.py, test_erp_integrations.py). Run all: `pytest /app/backend/tests/ -v`. ERP worker polls outbox every 2s — when asserting outbox/deliveries after creating a domain entity, sleep 3-5s. Internal simulator endpoint /_simulator/{vendor} is intentionally PUBLIC (no auth). Connector default endpoint uses INTERNAL_BASE_URL env (default http://localhost:8001) — admin /configure can override, do not assert on absolute endpoint string in regression. Sidebar now has 11 items including nav-erp; ERP page testid is erp-page. Mobile (Expo) is structural only — do not run yarn start.",
+  "rca of the issue": "Single regression failure in backend_test.py::TestIntegrations::test_connectors was due to outdated assertion expecting 'totvs' or 'protheus' (vendors from iteration 1). Iteration 2 swapped to {sap, oracle, siagri}. Fix: updated assertion to expect 'siagri'. Re-run after fix: 38/38 passing."
+}

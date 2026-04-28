@@ -1,0 +1,46 @@
+{
+  "summary": "First iteration. Comprehensive backend (27 pytest cases) + frontend smoke tests on Agro CRM. Backend: 27/27 passing (100%) covering health, JWT auth (login/me/refresh), full CRUD on clients (create→get→patch→soft-delete with persistence verification), pipeline board+move+interaction, contracts, orders (PATCH status), products, logistics, support, dashboard KPIs, GPT-5.2 AI agents (marketing analyze-client, sales summarize-opportunity, channel chat session+message), sync info/pull/push, integrations connectors+webhook, audit. Frontend: login → dashboard works, all 10 sidebar nav items navigate (Dashboard, Clientes, Pipeline, Contratos, Pedidos, Produtos, Logística, Suporte, Agentes IA, Arquitetura), 4 dashboard KPIs render with correct values, pipeline kanban renders 5 stages with opportunities + Resumo IA buttons, products grid (6 cards), AI agents page (3 agent cards + chat panel), Architecture (4 telemetry cards + 7 sections + ASCII diagram). No JS console errors, no page errors. user 'Carlos Andrade' shown.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/orders/{id}/advance", "issue": "No dedicated /advance endpoint exists; status advancement is done via generic PATCH with {status}. Original requirement mentioned 'Avançar status' button — this works via PATCH but a convenience POST /advance with state-machine logic may be desirable."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Dashboard KPI cards", "issue": "Top portion of KPI cards has a fade/gradient overlay that visually clips the labels (CONTRATOS ATIVOS, PIPELINE TOTAL, etc.) and value lines, reducing legibility on first paint. Numbers themselves are readable but title strip looks washed.", "selector": "[data-testid^='kpi-']", "priority": "LOW"},
+      {"component": "Dashboard 'Status de Pátio' donut", "issue": "Donut chart area appears empty in the dashboard screenshot — only the bottom legend (Queue 1, In Transit 1, Delivered 1) renders. The actual donut SVG seems missing or 0-sized.", "selector": "logistic-donut / .recharts wrapper", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Dashboard", "issues": ["Donut chart not visually rendered (only legend)", "KPI label text partially obscured by gradient"]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Investigate and fix Dashboard donut chart for logistic_status — appears empty (likely Recharts ResponsiveContainer height=0 or data shape mismatch).",
+    "Review Dashboard KPI card top overlay/gradient — labels look faded/clipped.",
+    "(Optional) Implement explicit POST /api/orders/{id}/advance with state-machine to formalize 'Avançar status' UX (currently relies on generic PATCH)."
+  ],
+  "critical_code_review_comments": [
+    "Pipeline interaction model uses field 'notes' instead of 'content' — fine, but document in API spec.",
+    "GET /api/pipeline/board returns object {stages, total_value, total_opportunities} (not list). Confirm frontend Pipeline.jsx consumes this shape correctly.",
+    "Soft-delete confirmed working on /api/clients (deleted_at set, removed from list). Good.",
+    "GPT-5.2 AI calls (marketing/sales/channel) all respond within ~5–15s — acceptable.",
+    "All endpoints under /api prefix; CORS/JWT functional; tenant_id default isolation in place."
+  ],
+  "updated_files": [
+    "/app/backend/tests/backend_test.py (created)",
+    "/app/test_reports/pytest/pytest_results.xml (generated)"
+  ],
+  "success_rate": {"backend": "100% (27/27)", "frontend": "100% navigation + render, 2 visual issues"},
+  "test_credentials": "admin@agrocrm.com / Admin@123 (verified working)",
+  "seed_data_creation": "No new seed data created. Used existing seed (5 clients, 6 products, 5 stages/opps, 4 contracts, 3 orders, 3 cargas, 3 vehicles, 3 tickets). TEST_ prefixed clients created during pytest are soft-deleted by tests.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend test suite at /app/backend/tests/backend_test.py is the canonical regression. Run: pytest /app/backend/tests/backend_test.py -v. AI tests take ~25-35s total due to live GPT-5.2 calls. Pipeline board returns dict {stages: [...]}, NOT a list — note for frontend tests. Orders advance is PATCH /api/orders/{id} with {status}, no /advance endpoint exists. Sync push payload format: {device_id, records:[{entity, op:'upsert', data:{id,...,tenant_id}}]}. Connectors response: {connectors:[{name,type,...}]}. Drag&drop in Pipeline UI not Playwright-tested; API-level move endpoint verified. Visual issues found: (a) dashboard KPI label fade overlay, (b) logistic donut chart area appears empty.",
+  "rca of the issue": "Donut chart issue likely due to Recharts ResponsiveContainer with parent height not set, or empty data array when logistic_status counts are uniform — main agent should inspect /app/frontend/src/pages/Dashboard.jsx donut PieChart usage. KPI fade is likely a CSS gradient overlay (::before pseudo-element) bleeding over title text — lower opacity or change z-index/color stops."
+}
