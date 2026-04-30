@@ -2,6 +2,7 @@
 from fastapi import APIRouter, Depends, Query
 from core.auth import current_user
 from core.db import db
+from core.permissions import ensure_permission
 
 router = APIRouter()
 
@@ -12,7 +13,10 @@ async def list_audit(
     skip: int = 0, limit: int = Query(50, le=200),
     user: dict = Depends(current_user),
 ):
+    ensure_permission(user, "audit.view")
     q: dict = {"tenant_id": user["tenant_id"]}
+    if user.get("branch_scope") == "selected":
+        q["branch_id"] = {"$in": user.get("branch_ids") or []}
     if entity:
         q["entity"] = entity
     cursor = db.audit_logs.find(q, {"_id": 0}).sort("timestamp", -1).skip(skip).limit(limit)

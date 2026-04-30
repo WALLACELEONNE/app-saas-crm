@@ -5,6 +5,16 @@ from core.db import db
 from core.seq import next_seq
 from core.models import utcnow, new_uuid
 
+SENSITIVE_FIELDS = {
+    "password",
+    "password_hash",
+    "token",
+    "access_token",
+    "refresh_token",
+    "headers",
+    "authorization",
+}
+
 
 def _strip_id(doc: dict) -> dict:
     if doc and "_id" in doc:
@@ -96,6 +106,7 @@ async def _audit(entity: str, entity_id: str, action: str,
     log = {
         "id": new_uuid(),
         "tenant_id": (after or before or {}).get("tenant_id", "tenant-default"),
+        "branch_id": (after or before or {}).get("branch_id"),
         "entity": entity,
         "entity_id": entity_id,
         "action": action,
@@ -103,6 +114,10 @@ async def _audit(entity: str, entity_id: str, action: str,
         "after": _safe(after),
         "user_id": user.get("id") if user else None,
         "user_email": user.get("email") if user else None,
+        "actor_role": user.get("role") if user else None,
+        "actor_membership_id": user.get("membership_id") if user else None,
+        "actor_branch_scope": user.get("branch_scope") if user else None,
+        "actor_branch_ids": user.get("branch_ids") if user else [],
         "timestamp": utcnow(),
     }
     await db.audit_logs.insert_one(log)
@@ -111,12 +126,21 @@ async def _audit(entity: str, entity_id: str, action: str,
     event_bus.publish(f"{entity}.{action}", {"entity_id": entity_id, "after": _safe(after)})
 
 
+async def write_audit(entity: str, entity_id: str, action: str,
+                      before: Optional[dict], after: Optional[dict],
+                      user: Optional[dict]) -> None:
+    await _audit(entity, entity_id, action, before, after, user)
+
+
 def _safe(doc: Optional[dict]) -> Optional[dict]:
     if doc is None:
         return None
     out = {}
     for k, v in doc.items():
         if k == "_id":
+            continue
+        if k.lower() in SENSITIVE_FIELDS:
+            out[k] = "***"
             continue
         if isinstance(v, datetime):
             out[k] = v.astimezone(timezone.utc).isoformat()

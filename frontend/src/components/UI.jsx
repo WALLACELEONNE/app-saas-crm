@@ -24,6 +24,8 @@ export function Card({ children, className = "", testid, lift = true }) {
 export function StatusTag({ status }) {
   const map = {
     active: ["tag-green", "Ativo"],
+    inactive: ["tag-muted", "Inativo"],
+    suspended: ["tag-red", "Suspenso"],
     draft: ["tag-muted", "Rascunho"],
     settled: ["tag-muted", "Liquidado"],
     cancelled: ["tag-red", "Cancelado"],
@@ -70,6 +72,46 @@ export function Loading() {
   return (
     <div className="flex items-center justify-center py-16">
       <div className="w-7 h-7 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+}
+
+export function PaginationBar({ total = 0, skip = 0, limit = 20, onPageChange, onLimitChange }) {
+  const page = Math.floor(skip / limit) + 1;
+  const pages = Math.max(1, Math.ceil(total / limit));
+  const from = total === 0 ? 0 : skip + 1;
+  const to = Math.min(skip + limit, total);
+
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border-subtle px-4 py-3 text-xs">
+      <div className="text-muted font-mono">{from}-{to} de {total}</div>
+      <div className="flex items-center gap-2">
+        <select
+          className="input-field !py-1 !px-2 !text-xs w-20"
+          value={limit}
+          onChange={(e) => onLimitChange?.(Number(e.target.value))}
+          aria-label="Itens por pagina"
+        >
+          <option value={10}>10</option>
+          <option value={20}>20</option>
+          <option value={50}>50</option>
+        </select>
+        <button
+          className="btn-ghost !py-1 !px-2"
+          disabled={page <= 1}
+          onClick={() => onPageChange?.(Math.max(0, skip - limit))}
+        >
+          Anterior
+        </button>
+        <span className="font-mono text-muted">{page}/{pages}</span>
+        <button
+          className="btn-ghost !py-1 !px-2"
+          disabled={page >= pages}
+          onClick={() => onPageChange?.(skip + limit)}
+        >
+          Proxima
+        </button>
+      </div>
     </div>
   );
 }

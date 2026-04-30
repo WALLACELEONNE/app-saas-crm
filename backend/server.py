@@ -13,6 +13,7 @@ load_dotenv()
 from core.db import db, ensure_indexes
 from core.events import event_bus
 from core.seed import seed_initial_data
+from core.tenancy import ensure_tenant_bootstrap
 from modules.integrations.worker import erp_worker
 
 from modules.auth.routes import router as auth_router
@@ -28,12 +29,16 @@ from modules.ai_agents.routes import router as ai_router
 from modules.sync.routes import router as sync_router
 from modules.integrations.routes import router as integrations_router
 from modules.audit.routes import router as audit_router
+from modules.admin.routes import router as admin_router
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await ensure_indexes()
-    await seed_initial_data()
+    await ensure_tenant_bootstrap()
+    if os.environ.get("ENABLE_DEMO_SEED", "false").lower() in {"1", "true", "yes", "on"}:
+        await seed_initial_data()
+        await ensure_tenant_bootstrap()
     event_bus.start()
     erp_worker.start()
     yield
@@ -73,6 +78,7 @@ app.include_router(ai_router, prefix=f"{API_PREFIX}/ai", tags=["AI Agents"])
 app.include_router(sync_router, prefix=f"{API_PREFIX}/sync", tags=["Mobile Sync"])
 app.include_router(integrations_router, prefix=f"{API_PREFIX}/integrations", tags=["Integrations"])
 app.include_router(audit_router, prefix=f"{API_PREFIX}/audit", tags=["Audit"])
+app.include_router(admin_router, prefix=f"{API_PREFIX}/admin", tags=["Admin"])
 
 
 @app.get(f"{API_PREFIX}/health")

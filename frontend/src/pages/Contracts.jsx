@@ -1,11 +1,16 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { api } from "../lib/api";
-import { Card, PageHeader, Loading, StatusTag, EmptyState } from "../components/UI";
-import { fmtBRL, fmtNum, fmtTon } from "../lib/utils";
+import { Card, PageHeader, Loading, StatusTag, EmptyState, PaginationBar } from "../components/UI";
+import { fmtBRL, fmtTon } from "../lib/utils";
+import { useAuth } from "../lib/auth";
 import { Plus, X } from "lucide-react";
 
 export default function Contracts() {
+  const { can } = useAuth();
   const [items, setItems] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [skip, setSkip] = useState(0);
+  const [limit, setLimit] = useState(20);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [clients, setClients] = useState([]);
@@ -16,15 +21,18 @@ export default function Contracts() {
     delivery_window: "2026-Q2", status: "active",
   });
 
-  const load = () => {
+  const load = useCallback(() => {
     setLoading(true);
-    api.get("/contracts").then((r) => setItems(r.data.items)).finally(() => setLoading(false));
-  };
+    api.get("/contracts", { params: { skip, limit } })
+      .then((r) => { setItems(r.data.items); setTotal(r.data.total || 0); })
+      .finally(() => setLoading(false));
+  }, [skip, limit]);
+
   useEffect(() => {
     load();
-    api.get("/clients").then((r) => setClients(r.data.items));
-    api.get("/products").then((r) => setProducts(r.data.items));
-  }, []);
+    api.get("/clients", { params: { limit: 200 } }).then((r) => setClients(r.data.items));
+    api.get("/products", { params: { limit: 200 } }).then((r) => setProducts(r.data.items));
+  }, [load]);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -39,6 +47,7 @@ export default function Contracts() {
       signed_at: new Date().toISOString().split("T")[0],
     });
     setOpen(false);
+    setSkip(0);
     load();
   };
 
@@ -46,11 +55,13 @@ export default function Contracts() {
     <div data-testid="contracts-page">
       <PageHeader
         title="Contratos"
-        subtitle="Compra, venda e barter de grãos. Vinculados a contratos no ERP via hub de integração (SAP/Oracle)."
+        subtitle="Compra, venda e barter de graos vinculados ao hub ERP."
         actions={
-          <button className="btn-primary flex items-center gap-2" onClick={() => setOpen(true)} data-testid="new-contract-btn">
-            <Plus size={16} /> Novo contrato
-          </button>
+          can("contracts.create") ? (
+            <button className="btn-primary flex items-center gap-2" onClick={() => setOpen(true)} data-testid="new-contract-btn">
+              <Plus size={16} /> Novo contrato
+            </button>
+          ) : null
         }
       />
 
@@ -60,7 +71,7 @@ export default function Contracts() {
             <table className="data-table" data-testid="contracts-table">
               <thead><tr>
                 <th>SEQ</th><th>Tipo</th><th>Cliente</th><th>Produto</th>
-                <th>Volume</th><th>Preço</th><th>Total</th><th>Status</th>
+                <th>Volume</th><th>Preco</th><th>Total</th><th>Status</th>
               </tr></thead>
               <tbody>
                 {items.map((c) => (
@@ -70,8 +81,8 @@ export default function Contracts() {
                     <td className="font-medium">{c.client_name}</td>
                     <td>{c.product_name}</td>
                     <td className="font-mono">{fmtTon(c.volume)}</td>
-                    <td className="font-mono text-accent-yellow">{c.type === "barter" ? "—" : fmtBRL(c.price)}</td>
-                    <td className="font-mono">{c.type === "barter" ? "—" : fmtBRL((c.volume || 0) * (c.price || 0))}</td>
+                    <td className="font-mono text-accent-yellow">{c.type === "barter" ? "-" : fmtBRL(c.price)}</td>
+                    <td className="font-mono">{c.type === "barter" ? "-" : fmtBRL((c.volume || 0) * (c.price || 0))}</td>
                     <td><StatusTag status={c.status} /></td>
                   </tr>
                 ))}
@@ -79,9 +90,18 @@ export default function Contracts() {
             </table>
           </div>
         )}
+        {!loading && items.length > 0 && (
+          <PaginationBar
+            total={total}
+            skip={skip}
+            limit={limit}
+            onPageChange={setSkip}
+            onLimitChange={(value) => { setLimit(value); setSkip(0); }}
+          />
+        )}
       </Card>
 
-      {open && (
+      {open && can("contracts.create") && (
         <div className="fixed inset-0 bg-black/60 z-40 flex items-center justify-center p-4" onClick={() => setOpen(false)}>
           <form onSubmit={submit} onClick={(e) => e.stopPropagation()}
                 className="card-surface p-6 w-full max-w-lg space-y-3" data-testid="new-contract-modal">
@@ -127,7 +147,7 @@ export default function Contracts() {
                 <input className="input-field font-mono" type="number" required value={form.volume} onChange={(e) => setForm({ ...form, volume: e.target.value })} />
               </div>
               <div>
-                <label className="overline">Preço (R$/ton)</label>
+                <label className="overline">Preco (R$/ton)</label>
                 <input className="input-field font-mono" type="number" step="0.01" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
               </div>
               <div>

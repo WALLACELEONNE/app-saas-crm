@@ -20,7 +20,7 @@ def _utcnow_iso() -> str:
 def _http_base() -> str:
     # In prod each connector points to the real ERP; here we default to ourselves
     # (the simulator) so workers can be exercised end-to-end.
-    return os.environ.get("INTERNAL_BASE_URL", "http://localhost:8001")
+    return os.environ.get("INTERNAL_BASE_URL", "http://localhost:8000")
 
 
 class ConnectorBase:
@@ -53,10 +53,14 @@ class ConnectorBase:
     async def deliver(self, event: dict) -> dict:
         """Send the transformed event to the ERP endpoint. Returns delivery info."""
         payload = self.transform(event)
+        headers = dict(self.headers)
+        tenant_id = event.get("tenant_id") or ((event.get("payload") or {}).get("after") or {}).get("tenant_id")
+        if tenant_id:
+            headers.setdefault("X-Tenant-Id", tenant_id)
         t0 = time.monotonic()
         try:
             async with httpx.AsyncClient(timeout=15.0) as client:
-                resp = await client.post(self.endpoint, json=payload, headers=self.headers)
+                resp = await client.post(self.endpoint, json=payload, headers=headers)
             return {
                 "ok": 200 <= resp.status_code < 300,
                 "status_code": resp.status_code,

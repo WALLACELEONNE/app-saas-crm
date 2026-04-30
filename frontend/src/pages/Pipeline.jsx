@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { api } from "../lib/api";
-import { Card, PageHeader, Loading, StatusTag } from "../components/UI";
+import { PageHeader, Loading } from "../components/UI";
 import { fmtBRL } from "../lib/utils";
+import { useAuth } from "../lib/auth";
 import { Sparkles, X, GripVertical } from "lucide-react";
 
 export default function Pipeline() {
+  const { can } = useAuth();
   const [board, setBoard] = useState(null);
   const [drag, setDrag] = useState(null);
   const [summary, setSummary] = useState(null);
@@ -12,8 +14,12 @@ export default function Pipeline() {
   const load = () => api.get("/pipeline/board").then((r) => setBoard(r.data));
   useEffect(() => { load(); }, []);
 
-  const handleDragStart = (opp) => setDrag(opp);
+  const handleDragStart = (opp) => {
+    if (can("pipeline.move")) setDrag(opp);
+  };
+
   const handleDrop = async (stage) => {
+    if (!can("pipeline.move")) return;
     if (!drag || drag.stage_id === stage.id) { setDrag(null); return; }
     await api.post(`/pipeline/opportunities/${drag.id}/move`, { stage_id: stage.id, stage_name: stage.name });
     setDrag(null);
@@ -36,7 +42,7 @@ export default function Pipeline() {
     <div data-testid="pipeline-page">
       <PageHeader
         title="Pipeline de Vendas"
-        subtitle={`${board.total_opportunities} oportunidades · ${fmtBRL(board.total_value)} potenciais. Arraste cards entre estágios.`}
+        subtitle={`${board.total_opportunities} oportunidades - ${fmtBRL(board.total_value)} potenciais.`}
       />
 
       <div className="flex gap-4 overflow-x-auto pb-4" data-testid="kanban-board">
@@ -61,12 +67,12 @@ export default function Pipeline() {
                 <div
                   key={o.id}
                   className={`kanban-card ${drag?.id === o.id ? "dragging" : ""}`}
-                  draggable
+                  draggable={can("pipeline.move")}
                   onDragStart={() => handleDragStart(o)}
                   data-testid={`opp-${o.seq_id}`}
                 >
                   <div className="flex items-start gap-2 mb-1">
-                    <GripVertical size={13} className="text-muted mt-0.5" />
+                    {can("pipeline.move") && <GripVertical size={13} className="text-muted mt-0.5" />}
                     <div className="font-medium text-sm leading-tight">{o.title}</div>
                   </div>
                   <div className="text-xs text-muted ml-5">{o.client_name}</div>
@@ -74,13 +80,15 @@ export default function Pipeline() {
                     <div className="font-mono text-[0.78rem] text-accent-yellow">{fmtBRL(o.value)}</div>
                     <span className="tag tag-muted !text-[0.65rem]">{o.probability}%</span>
                   </div>
-                  <button
-                    className="btn-ghost w-full mt-3 !py-1 text-xs flex items-center justify-center gap-1"
-                    onClick={() => summarize(o)}
-                    data-testid={`summarize-${o.seq_id}`}
-                  >
-                    <Sparkles size={12} className="text-accent-yellow" /> Resumo IA
-                  </button>
+                  {can("ai.use") && (
+                    <button
+                      className="btn-ghost w-full mt-3 !py-1 text-xs flex items-center justify-center gap-1"
+                      onClick={() => summarize(o)}
+                      data-testid={`summarize-${o.seq_id}`}
+                    >
+                      <Sparkles size={12} className="text-accent-yellow" /> Resumo IA
+                    </button>
+                  )}
                 </div>
               ))}
               {stage.opportunities.length === 0 && (
@@ -98,7 +106,7 @@ export default function Pipeline() {
             <div className="flex justify-between items-center mb-4">
               <div className="flex items-center gap-2">
                 <Sparkles size={18} className="text-accent-yellow" />
-                <h2 className="font-head font-bold text-xl">Agente Vendas — Resumo</h2>
+                <h2 className="font-head font-bold text-xl">Agente Vendas - Resumo</h2>
               </div>
               <button onClick={() => setSummary(null)}><X size={18} /></button>
             </div>

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { api } from "../lib/api";
-import { fmtBRL, fmtNum, fmtTon } from "../lib/utils";
+import { fmtBRL, fmtTon } from "../lib/utils";
 import { Card, PageHeader, Loading } from "../components/UI";
 import {
   PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis,

@@ -3,11 +3,14 @@ import { Navigate, useNavigate } from "react-router-dom";
 import { Wheat, KeyRound } from "lucide-react";
 import { useAuth } from "../lib/auth";
 
+const SHOW_DEMO_CREDENTIALS = process.env.REACT_APP_SHOW_DEMO_CREDENTIALS === "true";
+
 export default function Login() {
-  const { user, login, loading } = useAuth();
-  const [email, setEmail] = useState("admin@agrocrm.com");
-  const [password, setPassword] = useState("Admin@123");
+  const { user, login, selectTenant, loading } = useAuth();
+  const [email, setEmail] = useState(SHOW_DEMO_CREDENTIALS ? "admin@agrocrm.com" : "");
+  const [password, setPassword] = useState(SHOW_DEMO_CREDENTIALS ? "Admin@123" : "");
   const [err, setErr] = useState("");
+  const [tenantSelection, setTenantSelection] = useState(null);
   const nav = useNavigate();
 
   if (user) return <Navigate to="/dashboard" replace />;
@@ -16,6 +19,14 @@ export default function Login() {
     e.preventDefault();
     setErr("");
     const r = await login(email, password);
+    if (r.ok) nav("/dashboard");
+    else if (r.tenantSelectionRequired) setTenantSelection(r);
+    else setErr(r.error);
+  };
+
+  const chooseTenant = async (membershipId) => {
+    setErr("");
+    const r = await selectTenant(tenantSelection.selectionToken, membershipId);
     if (r.ok) nav("/dashboard");
     else setErr(r.error);
   };
@@ -76,37 +87,61 @@ export default function Login() {
           <h2 className="font-head text-3xl font-bold tracking-tight mb-1">Entrar</h2>
           <p className="text-muted text-sm mb-6">Use sua conta do trading desk.</p>
 
-          <label className="overline block mb-2">E-mail</label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="input-field mb-4 font-mono"
-            data-testid="login-email"
-            required
-          />
+          {tenantSelection ? (
+            <div className="space-y-2 mb-4" data-testid="tenant-selection">
+              {(tenantSelection.memberships || []).map((m) => (
+                <button
+                  key={m.membership_id}
+                  type="button"
+                  onClick={() => chooseTenant(m.membership_id)}
+                  className="btn-ghost w-full text-left !py-3"
+                >
+                  <div className="font-head font-semibold text-sm">{m.tenant_name}</div>
+                  <div className="text-xs text-muted font-mono">{m.role} - {m.branch_scope}</div>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <>
+              <label className="overline block mb-2">E-mail</label>
+              <input
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="input-field mb-4 font-mono"
+                data-testid="login-email"
+                required
+              />
 
-          <label className="overline block mb-2">Senha</label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="input-field mb-2 font-mono"
-            data-testid="login-password"
-            required
-          />
+              <label className="overline block mb-2">Senha</label>
+              <input
+                type="password"
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="input-field mb-2 font-mono"
+                data-testid="login-password"
+                required
+              />
+            </>
+          )}
 
           {err && <div className="text-accent-red text-sm mb-3" data-testid="login-error">{err}</div>}
 
-          <button type="submit" disabled={loading} className="btn-primary w-full mt-4 flex items-center justify-center gap-2" data-testid="login-submit">
-            <KeyRound size={16} strokeWidth={1.8} />
-            {loading ? "Autenticando..." : "Entrar"}
-          </button>
+          {!tenantSelection && (
+            <button type="submit" disabled={loading} className="btn-primary w-full mt-4 flex items-center justify-center gap-2" data-testid="login-submit">
+              <KeyRound size={16} strokeWidth={1.8} />
+              {loading ? "Autenticando..." : "Entrar"}
+            </button>
+          )}
 
-          <div className="mt-6 text-xs text-muted text-center font-mono">
+          {SHOW_DEMO_CREDENTIALS && (
+            <div className="mt-6 text-xs text-muted text-center font-mono">
             <div><span className="text-accent-yellow">DEMO</span> admin@agrocrm.com · Admin@123</div>
             <div>trader@agrocrm.com · Trader@123</div>
-          </div>
+            </div>
+          )}
         </form>
       </div>
     </div>

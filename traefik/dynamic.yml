@@ -1,0 +1,46 @@
+http:
+  middlewares:
+    security-headers:
+      headers:
+        sslRedirect: true
+        forceSTSHeader: true
+        stsIncludeSubdomains: true
+        stsPreload: true
+        stsSeconds: 31536000
+        frameDeny: true
+        contentTypeNosniff: true
+        browserXssFilter: true
+        referrerPolicy: "strict-origin-when-cross-origin"
+    
+    compress:
+      compress: {}
+
+    cors:
+      headers:
+        accessControlAllowMethods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - OPTIONS
+        accessControlAllowOriginList:
+          - "*"
+        accessControlAllowCredentials: true
+        accessControlMaxAge: 86400
+
+  routers:
+    api-security:
+      middlewares:
+        - security-headers
+        - compress
+
+  services:
+    api:
+      loadBalancer:
+        servers:
+          - url: http://agrocrm-backend:8000
+
+    web:
+      loadBalancer:
+        servers:
+          - url: http://agrocrm-frontend:80

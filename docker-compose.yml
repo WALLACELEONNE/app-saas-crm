@@ -1,0 +1,103 @@
+services:
+  mongodb:
+    image: mongo:7
+    container_name: agrocrm-mongodb
+    restart: unless-stopped
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - proxy
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  traefik:
+    image: traefik:v3.1
+    container_name: agrocrm-traefik
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - traefik_certs:/etc/traefik/certs
+      - traefik_acme:/acme
+    networks:
+      - proxy
+    environment:
+      - TZ=America/Sao_Paulo
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: agrocrm-cloudflared
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${TUNNEL_TOKEN:?TUNNEL_TOKEN is required}
+    networks:
+      - proxy
+    depends_on:
+      - traefik
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    image: agrocrm-backend
+    container_name: agrocrm-backend
+    restart: unless-stopped
+    environment:
+      - MONGO_URL=mongodb://mongodb:27017
+      - DB_NAME=agrocrm
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
+      - ENABLE_DEMO_SEED=${ENABLE_DEMO_SEED:-false}
+      - AI_PROVIDER=${AI_PROVIDER:-openai}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - AI_MODEL=${AI_MODEL:-gpt-5.2}
+      - AI_USER_PER_MINUTE=${AI_USER_PER_MINUTE:-6}
+      - AI_USER_DAILY_LIMIT=${AI_USER_DAILY_LIMIT:-80}
+      - AI_TENANT_DAILY_LIMIT=${AI_TENANT_DAILY_LIMIT:-500}
+      - AI_MONTHLY_TOKEN_BUDGET=${AI_MONTHLY_TOKEN_BUDGET:-2000000}
+      - CORS_ORIGINS=http://crm.apoctecnologia.com.br,https://crm.apoctecnologia.com.br,http://api.apoctecnologia.com.br,https://api.apoctecnologia.com.br
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.agrocrm-api.rule=Host(`api.apoctecnologia.com.br`)"
+      - "traefik.http.routers.agrocrm-api.entrypoints=web"
+      - "traefik.http.services.agrocrm-api.loadbalancer.server.port=8000"
+      - "traefik.docker.network=app-saas-crm_proxy"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      traefik:
+        condition: service_started
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: ../Dockerfile.frontend
+    image: agrocrm-frontend
+    container_name: agrocrm-frontend
+    restart: unless-stopped
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.agrocrm-web.rule=Host(`crm.apoctecnologia.com.br`)"
+      - "traefik.http.routers.agrocrm-web.entrypoints=web"
+      - "traefik.http.services.agrocrm-web.loadbalancer.server.port=80"
+      - "traefik.docker.network=app-saas-crm_proxy"
+
+networks:
+  proxy:
+    driver: bridge
+
+volumes:
+  mongo_data:
+  traefik_certs:
+  traefik_acme:

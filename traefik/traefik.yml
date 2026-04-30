@@ -1,0 +1,22 @@
+global:
+  checkNewVersion: true
+  sendAnonymousUsage: false
+
+api:
+  dashboard: true
+  insecure: true
+
+entryPoints:
+  web:
+    address: ":80"
+
+log:
+  level: INFO
+
+accessLog:
+  filePath: /dev/stdout
+
+providers:
+  docker:
+    network: app-saas-crm_proxy
+    exposedByDefault: false

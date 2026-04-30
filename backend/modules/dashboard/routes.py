@@ -3,25 +3,33 @@ from collections import defaultdict
 from fastapi import APIRouter, Depends
 from core.auth import current_user
 from core.db import db
+from core.permissions import ensure_permission, scoped_query
 
 router = APIRouter()
 
 
 @router.get("/kpis")
 async def kpis(user: dict = Depends(current_user)):
+    ensure_permission(user, "dashboard.view")
     tid = user["tenant_id"]
     base = {"tenant_id": tid, "deleted_at": None}
+    clients_base = {**base, **scoped_query(user, "clients")}
+    contracts_base = {**base, **scoped_query(user, "contracts")}
+    orders_base = {**base, **scoped_query(user, "orders")}
+    tickets_base = {**base, **scoped_query(user, "tickets")}
+    opportunities_base = {**base, **scoped_query(user, "opportunities")}
+    cargas_base = {**base, **scoped_query(user, "cargas")}
 
-    active_contracts = await db.contracts.count_documents({**base, "status": "active"})
-    total_clients = await db.clients.count_documents(base)
+    active_contracts = await db.contracts.count_documents({**contracts_base, "status": "active"})
+    total_clients = await db.clients.count_documents(clients_base)
     open_orders = await db.orders.count_documents(
-        {**base, "status": {"$in": ["pending", "confirmed", "in_transit"]}}
+        {**orders_base, "status": {"$in": ["pending", "confirmed", "in_transit"]}}
     )
-    open_tickets = await db.tickets.count_documents({**base, "status": {"$ne": "closed"}})
+    open_tickets = await db.tickets.count_documents({**tickets_base, "status": {"$ne": "closed"}})
 
     # Volume of grains in active contracts
     cursor = db.contracts.aggregate([
-        {"$match": {**base, "status": "active"}},
+        {"$match": {**contracts_base, "status": "active"}},
         {"$group": {"_id": None, "volume": {"$sum": "$volume"},
                     "value": {"$sum": {"$multiply": ["$volume", "$price"]}}}},
     ])
@@ -31,7 +39,7 @@ async def kpis(user: dict = Depends(current_user)):
 
     # Pipeline value by stage
     stages = [s async for s in db.pipeline_stages.find(base, {"_id": 0}).sort("order", 1)]
-    opps = [o async for o in db.opportunities.find(base, {"_id": 0})]
+    opps = [o async for o in db.opportunities.find(opportunities_base, {"_id": 0})]
     by_stage = defaultdict(lambda: {"count": 0, "value": 0})
     for o in opps:
         sid = o.get("stage_id")
@@ -45,15 +53,17 @@ async def kpis(user: dict = Depends(current_user)):
 
     # Revenue by region (from active contracts)
     revenue_by_region: dict[str, float] = defaultdict(float)
-    contracts = [c async for c in db.contracts.find({**base, "status": "active"}, {"_id": 0})]
+    contracts = [c async for c in db.contracts.find({**contracts_base, "status": "active"}, {"_id": 0})]
     for c in contracts:
-        cli = await db.clients.find_one({"id": c.get("client_id")}, {"_id": 0, "region": 1})
+        cli = await db.clients.find_one(
+            {"id": c.get("client_id"), "tenant_id": tid}, {"_id": 0, "region": 1}
+        )
         region = (cli or {}).get("region", "Sem região")
         revenue_by_region[region] += c.get("volume", 0) * c.get("price", 0)
 
     # Logistic status
     logistic = defaultdict(int)
-    async for c in db.cargas.find(base, {"_id": 0, "status": 1}):
+    async for c in db.cargas.find(cargas_base, {"_id": 0, "status": 1}):
         logistic[c["status"]] += 1
 
     # Recent activity (audit logs)

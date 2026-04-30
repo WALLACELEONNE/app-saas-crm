@@ -59,6 +59,23 @@ class ErpWorker:
     def stop(self) -> None:
         self._stop.set()
 
+    async def connectors_for_tenant(self, tenant_id: str) -> dict[str, ConnectorBase]:
+        """Build connectors using tenant-scoped persisted configuration."""
+        vendors = ("sap", "oracle", "siagri")
+        docs = {
+            doc["vendor"]: doc
+            async for doc in db.connector_configs.find(
+                {"tenant_id": tenant_id}, {"_id": 0}
+            )
+        }
+        connectors: dict[str, ConnectorBase] = {}
+        for vendor in vendors:
+            doc = docs.get(vendor)
+            if doc and doc.get("enabled") is False:
+                continue
+            connectors[vendor] = build_connector(vendor, (doc or {}).get("config") or {})
+        return connectors
+
     # ---------- event ingestion (outbox write) ----------
     async def _on_event(self, evt: dict) -> None:
         """Persist a copy of every domain event into the outbox.
@@ -119,7 +136,8 @@ class ErpWorker:
         deliveries = []
         all_ok = True
         topic = item.get("topic", "")
-        for vendor, connector in self.connectors.items():
+        connectors = await self.connectors_for_tenant(item.get("tenant_id", "tenant-default"))
+        for vendor, connector in connectors.items():
             if not connector.matches(topic):
                 continue
             # Circuit-breaker gate: if OPEN, skip without HTTP attempt.
@@ -145,7 +163,11 @@ class ErpWorker:
                 all_ok = False
                 continue
 
-            res = await connector.deliver({"topic": topic, "payload": item.get("payload")})
+            res = await connector.deliver({
+                "topic": topic,
+                "payload": item.get("payload"),
+                "tenant_id": item.get("tenant_id"),
+            })
             entry = {
                 "id": new_uuid(),
                 "outbox_id": oid,

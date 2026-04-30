@@ -1,15 +1,19 @@
-"""Pipeline module — Sales stages, Opportunities and Interactions (history)."""
+"""Pipeline module - sales stages, opportunities and interactions."""
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from core.auth import current_user
 from core.crud import make_crud_router
-from core.repo import (insert_entity, update_entity, find_one, list_entities,
-                       soft_delete)
-from core.db import db
+from core.repo import insert_entity, update_entity, find_one, list_entities
 from core.models import utcnow
+from core.permissions import (
+    apply_branch_scope,
+    ensure_document_access,
+    ensure_permission,
+    scoped_query,
+)
 
-# ----- Stages -----
+
 class StageCreate(BaseModel):
     name: str
     order: int
@@ -22,7 +26,6 @@ class StageUpdate(BaseModel):
     color: Optional[str] = None
 
 
-# ----- Opportunities -----
 class OppCreate(BaseModel):
     client_id: str
     client_name: Optional[str] = None
@@ -58,15 +61,15 @@ class StageMove(BaseModel):
 
 
 class InteractionCreate(BaseModel):
-    type: str  # call/email/meeting/note
+    type: str
     notes: str
 
 
-# ---- Routers ----
 router = APIRouter()
 stages_router = make_crud_router("pipeline_stages", StageCreate, StageUpdate)
-opps_router = make_crud_router("opportunities", OppCreate, OppUpdate,
-                                search_fields=["title", "client_name"])
+opps_router = make_crud_router(
+    "opportunities", OppCreate, OppUpdate, search_fields=["title", "client_name"]
+)
 
 router.include_router(stages_router, prefix="/stages")
 router.include_router(opps_router, prefix="/opportunities")
@@ -74,32 +77,44 @@ router.include_router(opps_router, prefix="/opportunities")
 
 @router.get("/board")
 async def board(user: dict = Depends(current_user)):
-    """Kanban board — stages with their opportunities grouped."""
-    stages = await list_entities("pipeline_stages", user["tenant_id"],
-                                 sort=[("order", 1)], limit=100)
-    opps = await list_entities("opportunities", user["tenant_id"], limit=500,
-                               sort=[("seq_id", -1)])
+    ensure_permission(user, "pipeline.view")
+    stages = await list_entities(
+        "pipeline_stages", user["tenant_id"], sort=[("order", 1)], limit=100
+    )
+    opps = await list_entities(
+        "opportunities",
+        user["tenant_id"],
+        scoped_query(user, "opportunities"),
+        limit=500,
+        sort=[("seq_id", -1)],
+    )
     by_stage: dict[str, list] = {s["id"]: [] for s in stages}
-    for o in opps:
-        by_stage.setdefault(o.get("stage_id"), []).append(o)
-    total_value = sum(o.get("value", 0) for o in opps)
+    for opp in opps:
+        by_stage.setdefault(opp.get("stage_id"), []).append(opp)
     return {
-        "stages": [{**s, "opportunities": by_stage.get(s["id"], []),
-                    "total_value": sum(o.get("value", 0) for o in by_stage.get(s["id"], []))}
-                   for s in stages],
-        "total_value": total_value,
+        "stages": [
+            {
+                **stage,
+                "opportunities": by_stage.get(stage["id"], []),
+                "total_value": sum(o.get("value", 0) for o in by_stage.get(stage["id"], [])),
+            }
+            for stage in stages
+        ],
+        "total_value": sum(o.get("value", 0) for o in opps),
         "total_opportunities": len(opps),
     }
 
 
 @router.post("/opportunities/{opp_id}/move")
 async def move_stage(opp_id: str, payload: StageMove, user: dict = Depends(current_user)):
+    ensure_permission(user, "pipeline.move")
     stage = await find_one("pipeline_stages", payload.stage_id, user["tenant_id"])
     if not stage:
-        raise HTTPException(404, "Estágio inválido")
+        raise HTTPException(404, "Estagio invalido")
     opp = await find_one("opportunities", opp_id, user["tenant_id"])
     if not opp:
-        raise HTTPException(404, "Oportunidade não encontrada")
+        raise HTTPException(404, "Oportunidade nao encontrada")
+    ensure_document_access(user, "opportunities", opp)
     history = opp.get("history", [])
     history.append({
         "type": "stage_change",
@@ -108,34 +123,61 @@ async def move_stage(opp_id: str, payload: StageMove, user: dict = Depends(curre
         "by": user.get("email"),
         "at": utcnow().isoformat(),
     })
-    return await update_entity("opportunities", opp_id, user["tenant_id"], {
-        "stage_id": stage["id"], "stage_name": stage["name"], "history": history,
-    }, user)
+    return await update_entity(
+        "opportunities",
+        opp_id,
+        user["tenant_id"],
+        {"stage_id": stage["id"], "stage_name": stage["name"], "history": history},
+        user,
+    )
 
 
 @router.post("/opportunities/{opp_id}/interactions")
-async def add_interaction(opp_id: str, payload: InteractionCreate,
-                          user: dict = Depends(current_user)):
+async def add_interaction(
+    opp_id: str, payload: InteractionCreate, user: dict = Depends(current_user)
+):
+    ensure_permission(user, "pipeline.update")
     opp = await find_one("opportunities", opp_id, user["tenant_id"])
     if not opp:
-        raise HTTPException(404, "Oportunidade não encontrada")
-    inter = await insert_entity("interactions", {
-        "tenant_id": user["tenant_id"],
-        "opportunity_id": opp_id,
-        "type": payload.type,
-        "notes": payload.notes,
-    }, user)
+        raise HTTPException(404, "Oportunidade nao encontrada")
+    ensure_document_access(user, "opportunities", opp)
+    inter = await insert_entity(
+        "interactions",
+        apply_branch_scope(
+            {
+                "tenant_id": user["tenant_id"],
+                "opportunity_id": opp_id,
+                "type": payload.type,
+                "notes": payload.notes,
+            },
+            user,
+            "interactions",
+        ),
+        user,
+    )
     history = opp.get("history", [])
-    history.append({"type": "interaction", "kind": payload.type,
-                     "notes": payload.notes, "by": user.get("email"),
-                     "at": utcnow().isoformat()})
-    await update_entity("opportunities", opp_id, user["tenant_id"],
-                       {"history": history}, user)
+    history.append({
+        "type": "interaction",
+        "kind": payload.type,
+        "notes": payload.notes,
+        "by": user.get("email"),
+        "at": utcnow().isoformat(),
+    })
+    await update_entity("opportunities", opp_id, user["tenant_id"], {"history": history}, user)
     return inter
 
 
 @router.get("/opportunities/{opp_id}/interactions")
 async def list_interactions(opp_id: str, user: dict = Depends(current_user)):
-    return await list_entities("interactions", user["tenant_id"],
-                               {"opportunity_id": opp_id},
-                               sort=[("seq_id", -1)], limit=200)
+    ensure_permission(user, "pipeline.view")
+    opp = await find_one("opportunities", opp_id, user["tenant_id"])
+    if not opp:
+        raise HTTPException(404, "Oportunidade nao encontrada")
+    ensure_document_access(user, "opportunities", opp)
+    return await list_entities(
+        "interactions",
+        user["tenant_id"],
+        scoped_query(user, "interactions", {"opportunity_id": opp_id}),
+        sort=[("seq_id", -1)],
+        limit=200,
+    )

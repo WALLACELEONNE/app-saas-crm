@@ -1,7 +1,75 @@
 import React, { useEffect, useRef, useState } from "react";
 import { api } from "../lib/api";
-import { Card, PageHeader, Loading } from "../components/UI";
-import { Send, Sparkles, MessageSquare, Plus, Bot } from "lucide-react";
+import { Card, PageHeader } from "../components/UI";
+import { Bot, Gauge, MessageSquare, Plus, Send, Sparkles } from "lucide-react";
+
+function InlineText({ text }) {
+  const parts = String(text || "").split(/(\*\*[^*]+\*\*)/g);
+  return (
+    <>
+      {parts.map((part, index) => {
+        if (part.startsWith("**") && part.endsWith("**")) {
+          return <strong key={index}>{part.slice(2, -2)}</strong>;
+        }
+        return <React.Fragment key={index}>{part}</React.Fragment>;
+      })}
+    </>
+  );
+}
+
+function AIMessage({ text }) {
+  const lines = String(text || "").split(/\r?\n/);
+  const blocks = [];
+  let list = [];
+
+  const flushList = () => {
+    if (list.length) {
+      blocks.push({ type: "list", items: list });
+      list = [];
+    }
+  };
+
+  lines.forEach((raw) => {
+    const line = raw.trim();
+    if (!line) {
+      flushList();
+      return;
+    }
+    const bullet = line.match(/^[-*]\s+(.+)$/);
+    if (bullet) {
+      list.push(bullet[1]);
+      return;
+    }
+    flushList();
+    blocks.push({ type: "p", text: line });
+  });
+  flushList();
+
+  return (
+    <div className="ai-message">
+      {blocks.map((block, index) => {
+        if (block.type === "list") {
+          return (
+            <ul key={index}>
+              {block.items.map((item, itemIndex) => (
+                <li key={itemIndex}><InlineText text={item} /></li>
+              ))}
+            </ul>
+          );
+        }
+        return <p key={index}><InlineText text={block.text} /></p>;
+      })}
+    </div>
+  );
+}
+
+function plainPreview(text) {
+  return String(text || "-")
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/^[-*]\s+/gm, "")
+    .replace(/\s+/g, " ")
+    .trim() || "-";
+}
 
 export default function AIAgents() {
   const [sessions, setSessions] = useState([]);
@@ -9,15 +77,18 @@ export default function AIAgents() {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [clients, setClients] = useState([]);
+  const [usage, setUsage] = useState(null);
   const [newOpen, setNewOpen] = useState(false);
   const [newClientId, setNewClientId] = useState("");
   const scroller = useRef(null);
 
   const loadSessions = () => api.get("/ai/channel/sessions").then((r) => setSessions(r.data));
+  const loadUsage = () => api.get("/ai/usage").then((r) => setUsage(r.data)).catch(() => {});
 
   useEffect(() => {
     loadSessions();
-    api.get("/clients").then((r) => setClients(r.data.items));
+    loadUsage();
+    api.get("/clients", { params: { limit: 200 } }).then((r) => setClients(r.data.items));
   }, []);
 
   useEffect(() => {
@@ -28,7 +99,7 @@ export default function AIAgents() {
     const cli = clients.find((c) => c.id === newClientId);
     const r = await api.post("/ai/channel/sessions", {
       client_id: newClientId || null,
-      title: cli ? `Conversa — ${cli.name}` : "Nova conversa",
+      title: cli ? `Conversa - ${cli.name}` : "Nova conversa",
     });
     setNewOpen(false);
     setNewClientId("");
@@ -46,39 +117,47 @@ export default function AIAgents() {
     try {
       const r = await api.post(`/ai/channel/sessions/${active.id}/messages`, { text: userText });
       setActive((a) => ({ ...a, messages: r.data.messages }));
+      loadUsage();
       loadSessions();
     } catch (e) {
       setActive((a) => ({ ...a, messages: [...(a.messages || []), { role: "assistant", text: "Erro: " + (e?.response?.data?.detail || e.message), at: new Date().toISOString() }] }));
-    } finally { setSending(false); }
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
     <div data-testid="ai-page">
       <PageHeader
         title="Agentes de IA"
-        subtitle="3 agentes GPT-5.2 — Marketing/Prospecção (na página Clientes), Vendas/Pós-venda (no Pipeline), e Canal do Cliente (chat abaixo)."
+        subtitle="Agentes com contexto CRM, cache, rate limit e medicao de uso por tenant."
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <Card className="border-l-4 !border-l-primary">
           <div className="flex items-center gap-2 mb-2"><Sparkles size={16} className="text-primary" /><div className="overline">Marketing</div></div>
-          <div className="font-head font-semibold text-lg">Agente de Prospecção</div>
-          <p className="text-muted text-sm mt-2">Análise de perfil de clientes, score de potencial e sugestão de abordagem comercial. Acesse pela página <strong>Clientes → IA</strong>.</p>
+          <div className="font-head font-semibold text-lg">Prospeccao</div>
+          <p className="text-muted text-sm mt-2">Analise de perfil, score de potencial e sugestao de abordagem na tela Clientes.</p>
         </Card>
         <Card className="border-l-4 !border-l-accent-yellow">
           <div className="flex items-center gap-2 mb-2"><Sparkles size={16} className="text-accent-yellow" /><div className="overline">Vendas</div></div>
-          <div className="font-head font-semibold text-lg">Agente de Negociação</div>
-          <p className="text-muted text-sm mt-2">Resumo de oportunidades, próximos passos no pipeline e alertas de follow-up. Acesse pela página <strong>Pipeline → Resumo IA</strong>.</p>
+          <div className="font-head font-semibold text-lg">Negociacao</div>
+          <p className="text-muted text-sm mt-2">Resumo de oportunidades, proximos passos e riscos na tela Pipeline.</p>
         </Card>
         <Card className="border-l-4 !border-l-accent-orange">
-          <div className="flex items-center gap-2 mb-2"><Sparkles size={16} className="text-accent-orange" /><div className="overline">Canal do Cliente</div></div>
-          <div className="font-head font-semibold text-lg">Chat Conversacional</div>
-          <p className="text-muted text-sm mt-2">Interface conversacional com contexto do CRM (pedidos, contratos, status). Use o chat abaixo.</p>
+          <div className="flex items-center gap-2 mb-2"><Sparkles size={16} className="text-accent-orange" /><div className="overline">Canal</div></div>
+          <div className="font-head font-semibold text-lg">Chat CRM</div>
+          <p className="text-muted text-sm mt-2">Conversa com contexto de pedidos, contratos, status e chamados.</p>
+        </Card>
+        <Card lift={false}>
+          <div className="flex items-center gap-2 mb-2"><Gauge size={16} className="text-primary" /><div className="overline">Uso IA</div></div>
+          <div className="font-head font-semibold text-lg">{usage?.user_day?.calls || 0}/{usage?.policy?.user_daily_limit || "-"} hoje</div>
+          <p className="text-muted text-xs mt-2 font-mono">{usage?.provider || "stub"} - {usage?.model || "-"}</p>
+          <p className="text-muted text-xs mt-1 font-mono">{usage?.user_day?.blocked || 0} bloqueadas</p>
         </Card>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4" style={{ minHeight: 520 }}>
-        {/* Sessions list */}
         <Card lift={false} className="lg:col-span-1 !p-4 flex flex-col">
           <div className="flex items-center justify-between mb-3">
             <div className="overline">Conversas</div>
@@ -96,13 +175,12 @@ export default function AIAgents() {
                 data-testid={`session-${s.seq_id}`}
               >
                 <div className="text-sm font-medium truncate">{s.title}</div>
-                <div className="text-xs text-muted truncate">{(s.messages || []).slice(-1)[0]?.text || "—"}</div>
+                <div className="text-xs text-muted truncate">{plainPreview((s.messages || []).slice(-1)[0]?.text)}</div>
               </button>
             ))}
           </div>
         </Card>
 
-        {/* Chat panel */}
         <Card lift={false} className="lg:col-span-3 !p-0 flex flex-col" testid="chat-panel">
           {!active ? (
             <div className="flex-1 flex flex-col items-center justify-center text-muted p-12">
@@ -118,26 +196,26 @@ export default function AIAgents() {
                 </div>
                 <div>
                   <div className="font-head font-semibold">{active.title}</div>
-                  <div className="text-xs text-muted">Powered by GPT-5.2 · contexto CRM injetado</div>
+                  <div className="text-xs text-muted">{usage?.provider || "LLM"} - contexto CRM - rate limit ativo</div>
                 </div>
               </div>
               <div ref={scroller} className="flex-1 overflow-auto p-5 space-y-3 bg-surface-card-2/40" style={{ maxHeight: 420 }}>
                 {(active.messages || []).length === 0 && (
-                  <div className="text-muted text-sm">Envie a primeira mensagem para começar a conversa.</div>
+                  <div className="text-muted text-sm">Envie a primeira mensagem para comecar a conversa.</div>
                 )}
                 {(active.messages || []).map((m, i) => (
                   <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                    <div className={m.role === "user" ? "bubble-user" : "bubble-ai"} data-testid={`msg-${i}`}>{m.text}</div>
+                    <div className={m.role === "user" ? "bubble-user" : "bubble-ai"} data-testid={`msg-${i}`}>
+                      {m.role === "user" ? m.text : <AIMessage text={m.text} />}
+                    </div>
                   </div>
                 ))}
-                {sending && (
-                  <div className="flex"><div className="bubble-ai animate-pulse">Pensando...</div></div>
-                )}
+                {sending && <div className="flex"><div className="bubble-ai animate-pulse">Pensando...</div></div>}
               </div>
               <form onSubmit={send} className="p-4 border-t border-border-subtle flex gap-2">
                 <input
                   className="input-field flex-1"
-                  placeholder="Pergunte sobre pedidos, contratos, status logístico..."
+                  placeholder="Pergunte sobre pedidos, contratos, status logistico..."
                   value={text}
                   onChange={(e) => setText(e.target.value)}
                   data-testid="chat-input"

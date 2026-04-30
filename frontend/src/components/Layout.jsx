@@ -2,27 +2,29 @@ import React from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Users, Kanban, FileSignature, ShoppingCart,
-  Package, Truck, LifeBuoy, Sparkles, Workflow, LogOut, Wheat, Plug
+  Package, Truck, LifeBuoy, Sparkles, Workflow, LogOut, Wheat, Plug, Settings
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 
 const NAV = [
-  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, testid: "nav-dashboard" },
-  { to: "/clients", label: "Clientes", icon: Users, testid: "nav-clients" },
-  { to: "/pipeline", label: "Pipeline", icon: Kanban, testid: "nav-pipeline" },
-  { to: "/contracts", label: "Contratos", icon: FileSignature, testid: "nav-contracts" },
-  { to: "/orders", label: "Pedidos", icon: ShoppingCart, testid: "nav-orders" },
-  { to: "/products", label: "Produtos", icon: Package, testid: "nav-products" },
-  { to: "/logistics", label: "Logística", icon: Truck, testid: "nav-logistics" },
-  { to: "/support", label: "Suporte", icon: LifeBuoy, testid: "nav-support" },
-  { to: "/ai", label: "Agentes IA", icon: Sparkles, testid: "nav-ai" },
-  { to: "/erp", label: "ERP Hub", icon: Plug, testid: "nav-erp" },
-  { to: "/architecture", label: "Arquitetura", icon: Workflow, testid: "nav-architecture" },
+  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, testid: "nav-dashboard", permission: "dashboard.view" },
+  { to: "/clients", label: "Clientes", icon: Users, testid: "nav-clients", permission: "clients.view" },
+  { to: "/pipeline", label: "Pipeline", icon: Kanban, testid: "nav-pipeline", permission: "pipeline.view" },
+  { to: "/contracts", label: "Contratos", icon: FileSignature, testid: "nav-contracts", permission: "contracts.view" },
+  { to: "/orders", label: "Pedidos", icon: ShoppingCart, testid: "nav-orders", permission: "orders.view" },
+  { to: "/products", label: "Produtos", icon: Package, testid: "nav-products", permission: "products.view" },
+  { to: "/logistics", label: "Logistica", icon: Truck, testid: "nav-logistics", permission: "logistics.view" },
+  { to: "/support", label: "Suporte", icon: LifeBuoy, testid: "nav-support", permission: "support.view" },
+  { to: "/ai", label: "Agentes IA", icon: Sparkles, testid: "nav-ai", permission: "ai.use" },
+  { to: "/erp", label: "ERP Hub", icon: Plug, testid: "nav-erp", permission: "erp.view" },
+  { to: "/admin", label: "Admin", icon: Settings, testid: "nav-admin", permission: "users.view" },
+  { to: "/architecture", label: "Arquitetura", icon: Workflow, testid: "nav-architecture", permission: "settings.view" },
 ];
 
 export default function Layout() {
-  const { user, logout } = useAuth();
+  const { user, logout, can } = useAuth();
   const nav = useNavigate();
+  const visibleNav = NAV.filter((item) => can(item.permission));
 
   return (
     <div className="min-h-screen">
@@ -38,24 +40,25 @@ export default function Layout() {
         </div>
 
         <nav className="flex flex-col gap-1 flex-1 overflow-y-auto pl-3">
-          {NAV.map((n) => (
+          {visibleNav.map((item) => (
             <NavLink
-              key={n.to}
-              to={n.to}
-              data-testid={n.testid}
+              key={item.to}
+              to={item.to}
+              data-testid={item.testid}
               className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}
             >
-              <n.icon size={17} strokeWidth={1.6} />
-              <span>{n.label}</span>
+              <item.icon size={17} strokeWidth={1.6} />
+              <span>{item.label}</span>
             </NavLink>
           ))}
         </nav>
 
-        <div className="mt-4 pt-4 border-t border-border-subtle">
+        <div className="account-panel mt-4 pt-4 border-t border-border-subtle">
           <div className="px-3 mb-3">
             <div className="text-[0.7rem] text-muted overline">Conectado</div>
             <div className="font-head font-semibold text-sm mt-1" data-testid="current-user-name">{user?.name}</div>
             <div className="text-xs text-muted">{user?.email}</div>
+            <div className="text-[0.65rem] text-muted mt-1 font-mono truncate">{user?.tenant?.name || user?.tenant_id}</div>
           </div>
           <button
             onClick={() => { logout(); nav("/login"); }}
